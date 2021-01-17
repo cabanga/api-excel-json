@@ -1,4 +1,5 @@
 /node_modules
+/Files
 .yarn.lock
 .DS_Store
 .pack
