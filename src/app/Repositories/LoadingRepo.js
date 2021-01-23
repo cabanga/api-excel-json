@@ -1,8 +1,7 @@
 const xlsx = require('xlsx')
 const fs = require('fs')
 const filePath = './Files/invoices/loading'
-const pathSuccess = './Files/invoices/success/'
-const pathFailed = './Files/invoices/failed/'
+const pathProcessed = './Files/invoices/processed'
 
 
 //=========================================================================================
@@ -26,16 +25,53 @@ function checkExistFile(){
 
 //=========================================================================================
 function readFile(file){
-    var workbook = xlsx.readFile(`${filePath}/${file}`, {celldates: true})
-    var first_ws = workbook.Sheets['Municipios']
+    var workbook = xlsx.readFile(`${filePath}/${file}`)
+    var first_ws = workbook.Sheets['FACT_EDIT']
     var data = xlsx.utils.sheet_to_json(first_ws)
 
+    
     if (data.length) {
-        moveFile(file)
+        var groupByCliente = groupBy(data, 'cliente_id')
+        var invoices = Object.entries(groupByCliente) 
+        
+        for (var i = 0; i < invoices.length; i++) {
+            let invoice = invoices[i]
+            createJsonFile(invoice)
+        }
     }
+    
 }
 
 //=========================================================================================
+function createJsonFile(group) {
+    let file_name = group[0]
+    let items = group[1]
+    let filePath = `${pathProcessed}/cliente-id-${file_name}.json`
+
+    try {
+        let data = JSON.stringify(items)
+        fs.writeFileSync(filePath, data)
+        createLogs(`file successfully processed, and create JSON file, name : ${filePath}`)
+    } catch (error) {
+        createLogs(`Failed to process, JSON file, name : ${filePath}`)
+        console.log(error)
+    }
+}
+
+
+//=========================================================================================
+
+function groupBy(items, key) {
+    return items.reduce(function(groups, item) {
+        const val = item[key]
+        groups[val] = groups[val] || []
+        groups[val].push(item)
+        return groups
+    }, {})
+}
+
+//=========================================================================================
+/*
 function moveFile(file) {
     fs.copyFileSync(`${filePath}/${file}`, `${pathSuccess}/${file}`)
     fs.renameSync(`${pathSuccess}/${file}`, `${pathSuccess}/invoice-${Date.now()}.xlsx`)
@@ -43,7 +79,7 @@ function moveFile(file) {
     fs.unlinkSync(`${filePath}/${file}`)
     createLogs('File moved to the success folder')
 }
-
+*/
 
 
 
