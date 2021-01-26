@@ -16,7 +16,7 @@ app.listen( port, function() {
 
 /*
 async function initLoading() {
-    let href = 'http://localhost:8080/loading-file'
+    let href = 'http://localhost:8080/create-invoices'
     await fetch(href)
 }
 
