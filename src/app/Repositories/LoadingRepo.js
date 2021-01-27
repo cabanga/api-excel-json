@@ -2,14 +2,16 @@ const xlsx = require('xlsx')
 const fs = require('fs')
 const filePath = './Files/invoices/loading'
 const pathProcessed = './Files/invoices/processed'
-const AXIOS = require('axios');
+const AXIOS = require('axios')
+var moment = require("moment")
 
-const baseUrl = 'http://localhost:3333'
+const baseUrl = 'http://epasn-qas.unig-erp.com:3355'
+var Factura = require('../Model/Factura')
 
 
 //=========================================================================================
 export async function loadInvoice () {
-    //let process_invoices = await checkExistFile()
+    
     
     await authUser()
     .then(response => { 
@@ -20,10 +22,11 @@ export async function loadInvoice () {
 
         if (status === 200) {
             createLogs('user authenticated successfully')
-            checkExistFile()            
+            //checkExistFile()
+            readJsonFile()
         }
     })
-    return "Esta studo OK"
+    
 }
 
 
@@ -67,21 +70,74 @@ function createJsonFile(group) {
     createLogs(`reading the invoice with reference - ${file_name}`)
 
     let items = group[1]
-    let filePath = `${pathProcessed}/factura-id-${file_name}.json`
+    let filePath = `${pathProcessed}/process-id-${file_name}.json`
 
     try {
         let data = JSON.stringify(items)
         fs.writeFileSync(filePath, data)
-        createLogs(`file successfully processed, and create JSON file, name : ${filePath}`)
+        createLogs(`file successfully processed, and create JSON file, name: ${filePath}`)
     } catch (error) {
         createLogs(`Failed to process, JSON file, name : ${filePath}`)
         console.log(error)
     }
 }
 
+//=========================================================================================
+async function readJsonFile(){
+    createLogs('read the JSON files to create invoices')
+
+    fs.readdir(pathProcessed, function (err, files) {
+        if (files.length) {
+            for (var i = 0; i < files.length; i++) {
+                let json_file = files[i]
+                let filePath = `${pathProcessed}/${json_file}`
+                getinfoJsonFile(filePath)
+            }            
+        }else{
+            createLogs('No file founds')
+            console.log("NENHUM FICHEIRO ENCONTRADO")
+        }
+    })
+}
 
 //=========================================================================================
+async function getinfoJsonFile(file){
+    let content = fs.readFileSync(file)
+    let lines_services = JSON.parse(content)
+    let nova_factura = Factura
 
+
+    //===================== INFORMAÇÕES COMPLEMENTARES ===================================
+    let first_line = lines_services[0]
+    
+    for(let line of lines_services){
+        let artigo = {
+            desconto: 0,
+            imposto_id: 2,
+            linhaTotalSemImposto: Number(line.total) * Number(line.quantidade_ou_onsumo),
+            nome: line.ARTIGO,
+            observacao: null,
+            produto_id: line.artigo_id,
+            quantidade: Number(line.quantidade_ou_onsumo),
+            total: Number(line.total) * Number(line.quantidade_ou_onsumo),
+            valor: Number(line.total),
+            valorImposto: 0,
+            valor_original: Number(line.total)
+        }
+        nova_factura.produtos.push(artigo)
+    }
+
+    nova_factura.serie_id = first_line.artigo_id
+    nova_factura.cliente = first_line.cliente_id
+    nova_factura.data_vencimento = first_line.data_vencimento //moment(first_line.data_vencimento).format("YYYY/MM//DD")
+    nova_factura.numero_origem_factura = first_line.factura
+    nova_factura.total = nova_factura.produtos.reduce((producto, item) => producto + item.total, 0)
+
+    console.log(nova_factura)
+
+}
+
+//=========================================================================================
 function groupBy(items, key) {
     return items.reduce(function(groups, item) {
         const val = item[key]
